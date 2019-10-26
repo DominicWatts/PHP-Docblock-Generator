@@ -1,14 +1,25 @@
+
+# PHP-Docblock Generator
+
 This class will generate docblock outline for files/folders.
 
-Use from command line - params:
-file/folder - the file or folder you want to docblock (php files)
--r - to have it recursively go through a folder
-target function - to docblock only a specific method/function name
 
-Example:
-php docblock.php target.php targetFunction
-or
-php docblock.php target/dir -r targetFunction
+## Install instructions
 
-Credit to Sean Coates for the getProtos function, modified a little.
-http://seancoates.com/fun-with-the-tokenizer
+curl -LJO https://raw.githubusercontent.com/DominicWatts/PHP-Docblock-Generator/master/docblock.php
+
+## Usage instructions
+
+### File
+
+    php docblock.php target.php
+
+    php docblock.php target.php targetFunction
+
+### Folder 
+
+`-r` to have it recursively go through a folder
+
+    php docblock.php target/dir -r
+
+    php docblock.php target/dir -r targetFunction
