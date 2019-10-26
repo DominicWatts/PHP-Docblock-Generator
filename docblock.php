@@ -252,9 +252,11 @@ class DocBlockGenerator
                                 'line' => $tokens[$i][2],
                             );
                         } elseif ($tokens[$i][0] == T_VARIABLE) {
+
                             $this_func['params'][] = array(
                                 'byRef' => $next_by_ref,
                                 'name' => $tokens[$i][1],
+                                'byClass' => $tokens[$i-2][1] ?? null,
                             );
                             $next_by_ref = false;
                         }
@@ -465,7 +467,7 @@ class DocBlockGenerator
         $doc_block .= "{$indent} * {$data['name']} method\n";
         if (isset($data['params'])) {
             foreach ($data['params'] as $func_param) {
-                $doc_block .= "{$indent} * @param ". (isset($func_param['default'])?$this->decodeType($func_param['default']):'type') . " {$func_param['name']}\n";
+                $doc_block .= "{$indent} * @param " . (isset($func_param['default']) ? $this->decodeType($func_param['default']) : $func_param['byClass']?: 'type') . " {$func_param['name']}\n";
             }
         }
         if (isset($data['return'])) {
