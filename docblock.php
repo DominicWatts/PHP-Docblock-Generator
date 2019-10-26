@@ -27,9 +27,10 @@
  * @version   0.85
  * @link      http://agentile.com/docblock/
  */
-class DocBlockGenerator {
+class DocBlockGenerator
+{
 
-    public $exts = array('.php', '.php4', '.php5', '.phps', '.inc');
+    public $exts = array('.php');
     public $target;
     public $target_function;
     public $recursive;
@@ -50,13 +51,25 @@ class DocBlockGenerator {
      * @static
      * @since 0.85
      */
+    /**
+     * __construct
+     *
+     * @param $target
+     * @param $target_function
+     * @param $recursive
+     *
+     * @return void
+     *
+     * @access public
+     * @static
+     * @since 0.85
+     */
     public function __construct($target, $target_function = null, $recursive = false)
     {
         $this->target = $target;
         $this->target_function = $target_function;
         $this->recursive = $recursive;
     }
-
     /**
      * result
      * Print output to command line
@@ -76,7 +89,6 @@ class DocBlockGenerator {
         }
         echo $str;
     }
-
     /**
      * start
      * Begin the docblocking process, determine if a file or folder was given
@@ -92,7 +104,7 @@ class DocBlockGenerator {
         if (is_file($this->target)) {
             $valid_file = $this->fileCheck($this->target);
             if ($valid_file == false) {
-                return;
+                return false;
             }
             $this->fileDocBlock();
         } elseif (is_dir($this->target)) {
@@ -107,10 +119,9 @@ class DocBlockGenerator {
             }
         } else {
             $this->log[] = 'This is not a file or folder.';
-            return;
+            return false;
         }
     }
-
     /**
      * fileCheck
      * Make sure we can deal with the target file
@@ -141,7 +152,6 @@ class DocBlockGenerator {
         }
         return $bool;
     }
-
     /**
      * fileDocBlock
      * Shell method for docblock operations, explodes file, performs docblock methods, impodes.
@@ -178,7 +188,6 @@ class DocBlockGenerator {
             return;
         }
     }
-
     /**
      * getProtos
      * This function goes through the tokens to gather the arrays of information we need
@@ -195,9 +204,13 @@ class DocBlockGenerator {
         $funcs = array();
         $classes = array();
         $curr_class = '';
+        $curr_func = '';
         $class_depth = 0;
         $count = count($tokens);
         for ($i = 0; $i < $count; $i++) {
+            if (is_array($tokens[$i]) && $tokens[$i][0] == T_RETURN) {
+                $funcs[$curr_func]['return'] = 'returns';
+            }
             if (is_array($tokens[$i]) && $tokens[$i][0] == T_CLASS) {
                 $line = $tokens[$i][2];
                 ++$i; // whitespace;
@@ -205,31 +218,48 @@ class DocBlockGenerator {
                 if (!in_array(array('line' => $line, 'name' => $curr_class), $classes)) {
                     $classes[] = array('line' => $line, 'name' => $curr_class);
                 }
-                while ($tokens[++$i] != '{') {}
+                while ($tokens[++$i] != '{') {
+                }
                 ++$i;
                 $class_depth = 1;
                 continue;
             } elseif (is_array($tokens[$i]) && $tokens[$i][0] == T_FUNCTION) {
-                $next_by_ref = FALSE;
+                $next_by_ref = false;
                 $this_func = array();
-
-                while ($tokens[++$i] != ')') {
+                $func_status = array();
+                if ($tokens[$i-2][1] == 'static') {
+                    $func_status['static'] = true;
+                } else {
+                    $func_status['static'] = false;
+                }
+                if ($tokens[$i-2][1] != 'static') {
+                    if ($tokens[$i-2][1] == 'public' || $tokens[$i-2][1] == 'private'|| $tokens[$i-2][1] == 'protected') {
+                        $func_status['access'] = $tokens[$i-2][1];
+                    }
+                }
+                if ($tokens[$i-2][1] == 'static') {
+                    if ($tokens[$i-4][1] == 'public' || $tokens[$i-4][1] == 'private'|| $tokens[$i-4][1] == 'protected') {
+                        $func_status['access'] = $tokens[$i-4][1];
+                    }
+                }
+                while ($tokens[++$i] != '{') {
                     if (is_array($tokens[$i]) && $tokens[$i][0] != T_WHITESPACE) {
                         if (!$this_func) {
+                            $curr_func = $tokens[$i][1];
                             $this_func = array(
                                 'name' => $tokens[$i][1],
                                 'class' => $curr_class,
                                 'line' => $tokens[$i][2],
                             );
-                        } else {
+                        } elseif ($tokens[$i][0] == T_VARIABLE) {
                             $this_func['params'][] = array(
                                 'byRef' => $next_by_ref,
                                 'name' => $tokens[$i][1],
                             );
-                            $next_by_ref = FALSE;
+                            $next_by_ref = false;
                         }
                     } elseif ($tokens[$i] == '&') {
-                        $next_by_ref = TRUE;
+                        $next_by_ref = true;
                     } elseif ($tokens[$i] == '=') {
                         while (!in_array($tokens[++$i], array(')', ','))) {
                             if ($tokens[$i][0] != T_WHITESPACE) {
@@ -239,21 +269,19 @@ class DocBlockGenerator {
                         $this_func['params'][count($this_func['params']) - 1]['default'] = $tokens[$i][1];
                     }
                 }
-                $funcs[] = $this_func;
+
+                $funcs[$curr_func] = $this_func + $func_status;
             } elseif ($tokens[$i] == '{' || $tokens[$i] == 'T_CURLY_OPEN' || $tokens[$i] == 'T_DOLLAR_OPEN_CURLY_BRACES') {
                 ++$class_depth;
             } elseif ($tokens[$i] == '}') {
                 --$class_depth;
             }
-
             if ($class_depth == 0) {
                 $curr_class = '';
             }
         }
-
         return array($funcs, $classes);
     }
-
     /**
      * docBlock
      * Main docblock function, determines if class or function docblocking is need and calls
@@ -282,10 +310,9 @@ class DocBlockGenerator {
         }
         $class_or_func = '';
         $count = count($arr);
-        for($i = 0; $i < $count; $i++) {
+        for ($i = 0; $i < $count; $i++) {
             $line = $i + 1;
             $code = $arr[$i];
-
             if (in_array($line, $class_lines) && !$this->docBlockExists($arr[($i - 1)])) {
                 $class_or_func = 'class';
             } elseif (in_array($line, $func_lines) && !$this->docBlockExists($arr[($i - 1)])) {
@@ -293,7 +320,6 @@ class DocBlockGenerator {
             } else {
                 continue;
             }
-
             if ($class_or_func === 'func') {
                 $data = $this->getData($line, $funcs);
             } elseif ($class_or_func === 'class') {
@@ -306,7 +332,7 @@ class DocBlockGenerator {
             }
             $indent_count = $this->getStrIndent($code);
             $indent = '';
-            for($indt = 0; $indt < $indent_count; $indt++) {
+            for ($indt = 0; $indt < $indent_count; $indt++) {
                 $indent .= ' ';
             }
             if ($class_or_func === 'func') {
@@ -318,7 +344,6 @@ class DocBlockGenerator {
         }
         return $arr;
     }
-
     /**
      * scanDirectories
      * Get all specific files from a directory and if recursive, subdirectories
@@ -363,7 +388,6 @@ class DocBlockGenerator {
         }
         return $data;
     }
-
     /**
      * getData
      * Retrieve method or class information from our arrays
@@ -386,7 +410,6 @@ class DocBlockGenerator {
         }
         return false;
     }
-
     /**
      * docBlockExists
      * Primitive check to see if docblock already exists
@@ -423,7 +446,6 @@ class DocBlockGenerator {
         }
         return false;
     }
-
     /**
      * functionDocBlock
      * Docblock for function
@@ -440,26 +462,46 @@ class DocBlockGenerator {
     public function functionDocBlock($indent, $data)
     {
         $doc_block = "{$indent}/**\n";
-        $doc_block .= "{$indent} * {$data['name']}\n";
-        $doc_block .= "{$indent} * Insert description here\n";
-        $doc_block .= "{$indent} *\n";
+        $doc_block .= "{$indent} * {$data['name']} method\n";
         if (isset($data['params'])) {
-            foreach($data['params'] as $func_param) {
-                $doc_block .= "{$indent} * @param {$func_param['name']}\n";
+            foreach ($data['params'] as $func_param) {
+                $doc_block .= "{$indent} * @param ". (isset($func_param['default'])?$this->decodeType($func_param['default']):'type') . " {$func_param['name']}\n";
             }
         }
-        $doc_block .= "{$indent} *\n";
-        $doc_block .= "{$indent} * @return\n";
-        $doc_block .= "{$indent} *\n";
-        $doc_block .= "{$indent} * @access\n";
-        $doc_block .= "{$indent} * @static\n";
-        $doc_block .= "{$indent} * @see\n";
-        $doc_block .= "{$indent} * @since\n";
+        if (isset($data['return'])) {
+            $doc_block .= "{$indent} * @return type\n";
+        }
+        if (!empty($data['access'])) {
+            $doc_block .= "{$indent} * @access {$data['access']}\n";
+        }
+        if ($data['static']) {
+            $doc_block .= "{$indent} * @static\n";
+        }
         $doc_block .= "{$indent} */\n";
-
         return $doc_block;
     }
-
+    /**
+     * Decode the parameter type
+     * @param type $type
+     * @return string
+     */
+    public function decodeType($type)
+    {
+        $typeToReturn = $type;
+        if ($type == "''") {
+            $typeToReturn =  'string';
+        }
+        if (is_int($type)) {
+            $typeToReturn =  'int';
+        }
+        if ($type === false) {
+            $typeToReturn = 'bool';
+        }
+        if ($type === true) {
+            $typeToReturn = 'bool';
+        }
+        return $typeToReturn;
+    }
     /**
      * classDocBlock
      * Docblock for class
@@ -476,23 +518,10 @@ class DocBlockGenerator {
     public function classDocBlock($indent, $data)
     {
         $doc_block = "{$indent}/**\n";
-        $doc_block .= "{$indent} * {$data['name']}\n";
-        $doc_block .= "{$indent} * Insert description here\n";
-        $doc_block .= "{$indent} *\n";
-        $doc_block .= "{$indent} * @category\n";
-        $doc_block .= "{$indent} * @package\n";
-        $doc_block .= "{$indent} * @author\n";
-        $doc_block .= "{$indent} * @copyright\n";
-        $doc_block .= "{$indent} * @license\n";
-        $doc_block .= "{$indent} * @version\n";
-        $doc_block .= "{$indent} * @link\n";
-        $doc_block .= "{$indent} * @see\n";
-        $doc_block .= "{$indent} * @since\n";
+        $doc_block .= "{$indent} * {$data['name']} class\n";
         $doc_block .= "{$indent} */\n";
-
         return $doc_block;
     }
-
     /**
      * getStrIndent
      * Returns indentation count of a string
@@ -514,7 +543,6 @@ class DocBlockGenerator {
             return $count;
         }
     }
-
 }
 
 $argv = empty($_SERVER['argv']) ? array(0 => '') : $_SERVER['argv'];
@@ -553,7 +581,6 @@ if (isset($argv[1])) {
     } else {
         die("\nThis is not a valid file or directory\n");
     }
-
 } else {
     die("\nPlease provide a file or directory as a parameter\n");
 }
