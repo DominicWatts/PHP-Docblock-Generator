@@ -163,6 +163,11 @@ class DocBlockGenerator
      */
     public function fileDocBlock()
     {
+        echo "Checking {$this->target}\n";
+        if (strpos($this->target, 'Interface') !== false || strpos($this->target, 'Abstract') !== false) {
+            $this->log[] = "{$this->target} Skipped";
+            return;
+        }
         $this->file_contents = file_get_contents($this->target);
         list($funcs, $classes) = $this->getProtos();
         $handle = fopen($this->target, 'r');
@@ -213,11 +218,11 @@ class DocBlockGenerator
             if (isset($tokens[$i]) && is_array($tokens[$i]) && $tokens[$i][0] == T_CLASS) {
                 $line = $tokens[$i][2];
                 ++$i; // whitespace;
-                $curr_class = $tokens[++$i][1];
+                $curr_class = $tokens[++$i][1] ?? null;
                 if (!in_array(array('line' => $line, 'name' => $curr_class), $classes)) {
                     $classes[] = array('line' => $line, 'name' => $curr_class);
                 }
-                while ($tokens[++$i] != '{') {
+                while (@$tokens[++$i] != '{') {
                 }
                 ++$i;
                 $class_depth = 1;
