@@ -29,7 +29,6 @@
  */
 class DocBlockGenerator
 {
-
     public $exts = array('.php');
     public $target;
     public $target_function;
@@ -208,10 +207,10 @@ class DocBlockGenerator
         $class_depth = 0;
         $count = count($tokens);
         for ($i = 0; $i < $count; $i++) {
-            if (is_array($tokens[$i]) && $tokens[$i][0] == T_RETURN) {
+            if (isset($tokens[$i]) && is_array($tokens[$i]) && $tokens[$i][0] == T_RETURN) {
                 $funcs[$curr_func]['return'] = 'returns';
             }
-            if (is_array($tokens[$i]) && $tokens[$i][0] == T_CLASS) {
+            if (isset($tokens[$i]) && is_array($tokens[$i]) && $tokens[$i][0] == T_CLASS) {
                 $line = $tokens[$i][2];
                 ++$i; // whitespace;
                 $curr_class = $tokens[++$i][1];
@@ -223,7 +222,7 @@ class DocBlockGenerator
                 ++$i;
                 $class_depth = 1;
                 continue;
-            } elseif (is_array($tokens[$i]) && $tokens[$i][0] == T_FUNCTION) {
+            } elseif (isset($tokens[$i]) && is_array($tokens[$i]) && $tokens[$i][0] == T_FUNCTION) {
                 $next_by_ref = false;
                 $this_func = array();
                 $func_status = array();
@@ -242,8 +241,9 @@ class DocBlockGenerator
                         $func_status['access'] = $tokens[$i-4][1];
                     }
                 }
-                while ($tokens[++$i] != '{') {
-                    if (is_array($tokens[$i]) && $tokens[$i][0] != T_WHITESPACE) {
+                
+                while (@$tokens[++$i] != '{') {
+                    if (isset($tokens[$i]) && is_array($tokens[$i]) && $tokens[$i][0] != T_WHITESPACE) {
                         if (!$this_func) {
                             $curr_func = $tokens[$i][1];
                             $this_func = array(
@@ -252,7 +252,6 @@ class DocBlockGenerator
                                 'line' => $tokens[$i][2],
                             );
                         } elseif ($tokens[$i][0] == T_VARIABLE) {
-
                             $this_func['params'][] = array(
                                 'byRef' => $next_by_ref,
                                 'name' => $tokens[$i][1],
@@ -260,18 +259,20 @@ class DocBlockGenerator
                             );
                             $next_by_ref = false;
                         }
-                    } elseif ($tokens[$i] == '&') {
+                    } elseif (isset($tokens[$i]) && $tokens[$i] == '&') {
                         $next_by_ref = true;
-                    } elseif ($tokens[$i] == '=') {
+                    } elseif (isset($tokens[$i]) && $tokens[$i] == '=') {
                         while (!in_array($tokens[++$i], array(')', ','))) {
                             if ($tokens[$i][0] != T_WHITESPACE) {
                                 break;
                             }
                         }
-                        $this_func['params'][count($this_func['params']) - 1]['default'] = $tokens[$i][1];
+                        if (isset($tokens[$i][1])) {
+                            $this_func['params'][count($this_func['params']) - 1]['default'] = $tokens[$i][1];
+                        }
                     }
                 }
-
+                
                 $funcs[$curr_func] = $this_func + $func_status;
             } elseif ($tokens[$i] == '{' || $tokens[$i] == 'T_CURLY_OPEN' || $tokens[$i] == 'T_DOLLAR_OPEN_CURLY_BRACES') {
                 ++$class_depth;
